@@ -79,6 +79,10 @@ public:
     --activeInterface;
     if( activeInterface >= 0 ) stack[activeInterface]->Setup();
   }
+
+  int numUI() {
+    return activeInterface + 1;
+  }
   
 private:
   static const int maxStack = 12;
@@ -103,7 +107,7 @@ public:
   }
   
   void OnKeyEvent( keypadEvent e ) {
-    if (e.bit.EVENT == KEY_JUST_PRESSED) {
+    if (e.bit.EVENT == KEY_JUST_RELEASED) {
       int key = e.bit.KEY;  // shorthand for what was pressed
       trellis.setPixelColor(blink_key, palette->Color(blink_key));
       blink_key = key;
@@ -153,7 +157,7 @@ public:
   }
 
   void OnKeyEvent( keypadEvent e ) {
-    if (e.bit.EVENT == KEY_JUST_PRESSED) {
+    if (e.bit.EVENT == KEY_JUST_RELEASED) {
       int key = e.bit.KEY;  // shorthand for what was pressed
       
       int column = key % 8;
@@ -182,7 +186,7 @@ private:
 
 class BeatManager {
 public:
-  BeatManager() : bpm(30.0f) {
+  BeatManager() : bpm(80.0f) {
     nextBeatAt = TimeBetweenBeats();
   }
   
@@ -196,6 +200,7 @@ public:
 
   int ActiveBeat() { return activeBeat; }
   void BPM(float value) { bpm = value; }
+  int BPM() { return bpm; }
   
 private:
   unsigned long nextBeatAt;
@@ -228,7 +233,7 @@ public:
   }
 
   void OnKeyEvent( keypadEvent e ) {
-    if (e.bit.EVENT == KEY_JUST_PRESSED) {
+    if (e.bit.EVENT == KEY_JUST_RELEASED) {
       int key = e.bit.KEY;
       ++paletteChoice[key];
       paletteChoice[key] %= 4;      
@@ -288,7 +293,7 @@ public:
   }
   
   void OnKeyEvent( keypadEvent e ) {
-    if (e.bit.EVENT == KEY_JUST_PRESSED) {
+    if (e.bit.EVENT == KEY_JUST_RELEASED) {
       int key = e.bit.KEY;
       int row = key / 8;
       int col = key % 8;
@@ -328,12 +333,136 @@ private:
   }
 };
 
+class MainMenu : public UIInterface {
+public:
+  MainMenu( BeatManager* bm, Palette* palette ) : beatManager(bm) {
+    paletteManager = new PaletteManager(palette);
+    colorSequencer = new ColorSequencer(beatManager);
+    animSequencer = new AnimationSequencer(beatManager);
+  }
+
+  ColorSequencer* GetColorSequencer() { return colorSequencer; }
+  AnimationSequencer* GetAnimationSequencer() { return animSequencer; }
+  
+  void Setup() {
+    UpdateDisplay();
+  }
+
+  void Shutdown() {
+    
+  }
+
+  void OnKeyEvent( keypadEvent e ) {
+    if (e.bit.EVENT == KEY_JUST_RELEASED) {
+      int key = e.bit.KEY;
+      int row = key / 8;
+      int col = key % 8;
+
+      if( InRect( col, row, 0, 0, 2, 2 ) ) {
+        manager->push(paletteManager);
+      } else if( InRect( col, row, 2, 0, 2, 2 ) ) {
+        manager->push(colorSequencer);
+      } else if( InRect( col, row, 4, 0, 2, 2 ) ) {
+        manager->push(animSequencer);     
+      } else if( row == 2 && col == 5 ) {
+        beatManager->BPM( beatManager->BPM() + 5 );
+      } else if( row == 3 && col == 5 ) {
+        beatManager->BPM( beatManager->BPM() - 5 );
+      } else if( row == 2 && col == 4 ) {
+        beatManager->BPM( beatManager->BPM() + 1 );
+      } else if( row == 3 && col == 4 ) {
+        beatManager->BPM( beatManager->BPM() - 1 );
+      }
+    }
+  }
+  
+  void Tick() {
+    int c = beatManager->ActiveBeat() % 8;
+    for( int i = 0; i < 4; ++i ) {
+      for( int j = 2; j < 4; ++j ) {
+        trellis.setPixelColor((j*8)+i, (c == ((j-2)*4)+i) ? trellis.Color(255,255,255) : 0 );
+      }
+    }
+  }
+
+private:
+  bool InRect( int c, int r, int x, int y, int w, int h ) {
+    return c >= x && c < x + w && r >= y && r < y + h;
+  }
+  
+  void DrawButton( int x, int y, uint32_t color, int w = 2, int h = 2 )
+  {
+    for( int cx = x; cx < x + w; ++cx ) {
+      for( int cy = y; cy < y + h; ++cy ) {
+        trellis.setPixelColor((cy*8)+cx, color);
+      }
+    }       
+  }
+  
+  void UpdateDisplay() {
+    trellis.fill(0);
+    DrawButton(0,0,trellis.Color(255,0,0));
+    DrawButton(2,0,trellis.Color(0,255,0));
+    DrawButton(4,0,trellis.Color(0,0,255));
+    DrawButton(4,2,trellis.Color(0,255,0),1);
+    DrawButton(4,3,trellis.Color(255,0,0),1);
+    DrawButton(5,2,trellis.Color(0,255,64),1);
+    DrawButton(5,3,trellis.Color(255,64,0),1);
+  }
+
+  BeatManager* beatManager;
+  PaletteManager* paletteManager;
+  ColorSequencer* colorSequencer;
+  AnimationSequencer* animSequencer;
+};
+
+
+class AnimationPlayer : public UIInterface {
+public:
+  AnimationPlayer( BeatManager* beatManager, Palette* palette ) : beatManager(beatManager) {
+    mainMenu = new MainMenu(beatManager,palette);
+  }
+  
+  void Setup() {  
+    trellis.fill(0);
+  }
+
+  void Shutdown() {
+    
+  }
+
+  void OnKeyEvent( keypadEvent e ) {
+  }
+
+  void Tick() {
+    trellis.fill(0);
+    trellis.setPixelColor( beatManager->ActiveBeat(), trellis.Color(255,255,255) );
+    
+    if( trellis.isPressed(0) && trellis.isPressed(7) ) {
+      do {
+        trellis.tick();
+      } while( trellis.isPressed(0) || trellis.isPressed(7) );
+      trellis.Adafruit_Keypad::clear();
+      manager->push(mainMenu);
+    }
+  }
+  
+private:
+  ColorSequencer* GetColorSequencer() { 
+    return mainMenu->GetColorSequencer();
+  }
+  AnimationSequencer* GetAnimationSequencer() {
+    return mainMenu->GetAnimationSequencer();
+  }
+  
+  MainMenu* mainMenu;
+  BeatManager* beatManager;  
+};
+
 UIManager uiManager;
 RainbowPalette palette;
-PaletteManager* paletteManager;
-ColorSequencer* colorSequencer;
-AnimationSequencer* animSequencer;
 BeatManager beatManager;
+AnimationPlayer* player;
 
 void setup(){
   trellis.begin();
@@ -341,17 +470,25 @@ void setup(){
   trellis.setBrightness(brightness);
 
   palette.Size(trellis.num_keys());
-  paletteManager = new PaletteManager(&palette);
-  colorSequencer = new ColorSequencer(&beatManager);
-  animSequencer = new AnimationSequencer(&beatManager);
+  player = new AnimationPlayer(&beatManager,&palette);
   
-  uiManager.push(animSequencer);
+  uiManager.push(player);
 }
   
 void loop() {
   // put your main code here, to run repeatedly:
   trellis.tick();
   beatManager.Tick();
+
+  if( uiManager.numUI() > 1 ) {
+    if( trellis.isPressed(0) && trellis.isPressed(7) ) {
+      uiManager.pop();
+      do {
+        trellis.tick();
+      } while( trellis.isPressed(0) || trellis.isPressed(7) );
+      trellis.Adafruit_Keypad::clear();
+    }
+  }
   
   while (trellis.available()){
     keypadEvent e = trellis.read();
