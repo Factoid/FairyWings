@@ -3,7 +3,7 @@
 // The NeoTrellisM4 object is a keypad and neopixel strip subclass
 // that does things like auto-update the NeoPixels and stuff!
 Adafruit_NeoTrellisM4 trellis = Adafruit_NeoTrellisM4();
-int brightness = 20;
+int brightness = 60;
 
 class Palette {
 public:
@@ -175,6 +175,10 @@ public:
   void Tick() {
     
   }
+
+  int* GetColors( int palette ) {
+    return paletteChoices[palette];
+  }
   
 private:
   int paletteChoices[4][4];
@@ -183,22 +187,23 @@ private:
   int selectedCol;
   int selectedPal;
 };
-
+/*
 class BeatManager {
 public:
-  BeatManager() : bpm(80.0f) {
+  BeatManager() : bpm(140.0f) {
     nextBeatAt = TimeBetweenBeats();
   }
   
   void Tick() {
     if( millis() >= nextBeatAt ) {
       ++activeBeat;
-      activeBeat %= 32;
       nextBeatAt += TimeBetweenBeats();
     }
   }
 
-  int ActiveBeat() { return activeBeat; }
+  int ActiveBeat() { return activeBeat%32; }
+  int CurrentBeat() { return activeBeat; }
+  
   void BPM(float value) { bpm = value; }
   int BPM() { return bpm; }
   
@@ -211,10 +216,38 @@ private:
     return (unsigned long)((1.0f/(bpm/60.0f))*1000.0f);
   }  
 };
+*/
+class BeatManager {
+public:
+  BeatManager() : bpm(140.0f) {    
+  }
+
+  void Tick() {
+    unsigned long now = millis();
+    float delta = (now - lastTime)/1000.0f;
+    lastTime = now;
+    activeBeat += delta * (bpm/60.0f);
+  }
+
+  int ActiveBeat() { return (int)activeBeat%32; }
+  float CurrentBeat() { return activeBeat; }
+
+  void SetBPM(float value) { bpm = value; }
+  float GetBPM() { return bpm; }
+  
+private:
+  unsigned long lastTime;
+  float activeBeat;
+  float bpm;
+};
 
 class ColorSequencer : public UIInterface {
 public:
-  ColorSequencer( BeatManager* beatManager ) : beatManager(beatManager), lastBeat(0) {}
+  ColorSequencer( BeatManager* beatManager ) : beatManager(beatManager), lastBeat(0) {
+    for( int i = 0; i < MAX_BEATS; ++i ) {
+      paletteChoice[i] = 0;
+    }
+  }
   
   void Setup() {
     color[0] = trellis.Color(255,0,0);
@@ -222,9 +255,6 @@ public:
     color[2] = trellis.Color(0,0,255);
     color[3] = trellis.Color(255,255,0);        
 
-    for( int i = 0; i < MAX_BEATS; ++i ) {
-      paletteChoice[i] = 0;
-    }
     updateDisplay();
   }
   
@@ -253,6 +283,11 @@ public:
       trellis.setPixelColor(activeBeat, color[paletteChoice[activeBeat]]);            
     }
   }
+
+  int ActivePalette() {
+    int activeBeat = beatManager->ActiveBeat();
+    return paletteChoice[activeBeat];
+  }
   
 private:
   static const int MAX_BEATS = 32;
@@ -270,9 +305,7 @@ private:
 
 class AnimationSequencer : public UIInterface {
 public:
-  AnimationSequencer( BeatManager* beatManager ) : beatManager(beatManager) {}
-  
-  void Setup() {
+  AnimationSequencer( BeatManager* beatManager ) : beatManager(beatManager) {
     color[0] = trellis.Color(255,0,0);
     color[1] = trellis.Color(0,255,0);
     color[2] = trellis.Color(0,0,255);
@@ -285,6 +318,9 @@ public:
     for( int i = 0; i < MAX_ANIM; ++i ) {
       animChoice[i] = 0;
     }
+  }
+  
+  void Setup() {
     UpdateDisplay();
   }
   
@@ -305,7 +341,6 @@ public:
   
   void Tick() {
     int activeBeat = beatManager->ActiveBeat();
-
     int row = activeBeat / 8;
     for( int i = 0; i < MAX_ANIM; ++i ) {
       if( row == i && ((millis() / 125) % 2 == 1) ) {
@@ -314,6 +349,12 @@ public:
         trellis.setPixelColor((i*8)+animChoice[i], trellis.Color(255,255,255));
       }
     }
+  }
+
+  int ActiveAnimation() {
+    int activeBeat = beatManager->ActiveBeat();
+    int row = activeBeat / 8;
+    return animChoice[row];
   }
 
 private:
@@ -343,6 +384,7 @@ public:
 
   ColorSequencer* GetColorSequencer() { return colorSequencer; }
   AnimationSequencer* GetAnimationSequencer() { return animSequencer; }
+  PaletteManager* GetPaletteManager() { return paletteManager; }
   
   void Setup() {
     UpdateDisplay();
@@ -365,13 +407,13 @@ public:
       } else if( InRect( col, row, 4, 0, 2, 2 ) ) {
         manager->push(animSequencer);     
       } else if( row == 2 && col == 5 ) {
-        beatManager->BPM( beatManager->BPM() + 5 );
+        beatManager->SetBPM( beatManager->GetBPM() + 5 );
       } else if( row == 3 && col == 5 ) {
-        beatManager->BPM( beatManager->BPM() - 5 );
+        beatManager->SetBPM( beatManager->GetBPM() - 5 );
       } else if( row == 2 && col == 4 ) {
-        beatManager->BPM( beatManager->BPM() + 1 );
+        beatManager->SetBPM( beatManager->GetBPM() + 1 );
       } else if( row == 3 && col == 4 ) {
-        beatManager->BPM( beatManager->BPM() - 1 );
+        beatManager->SetBPM( beatManager->GetBPM() - 1 );
       }
     }
   }
@@ -416,11 +458,111 @@ private:
   AnimationSequencer* animSequencer;
 };
 
+class Animation {
+public:
+  virtual void Draw( float beat, int* paletteChoices, Palette* palette ) {
+    
+  }  
+};
+
+class SimpleBeat : public Animation {
+public:
+  void Draw( float beat, int* paletteChoices, Palette* palette ) {
+    trellis.fill(0);
+    trellis.setPixelColor( (int)beat%32, palette->Color( paletteChoices[(int)beat%4] ) );    
+  }
+};
+
+class FadePixel
+{
+public:
+  FadePixel() : pixel(0), running(false), r(0), g(0), b(0), duration(0) {}  
+  void SetPixel( int i ) {
+    pixel = i;
+  }
+  
+  bool Running() { return running; }
+  
+  void Start( uint32_t color, float startTime, float duration ) {
+    if( running ) return;
+    running = true;
+    r = ((color & 0x00FF0000)>>16);
+    g = ((color & 0x0000FF00)>>8);
+    b = ((color & 0x000000FF));
+    this->duration = duration;
+    this->startTime = startTime;  
+  }
+
+  void Update( float currentBeat ) {
+    if( currentBeat >= startTime + duration ) {
+      running = false;
+    }
+    if( !running ) return;
+    float t = 1.0f-((currentBeat-startTime)/duration);
+    trellis.setPixelColor( pixel, trellis.Color( t*r, t*g, t*b ));
+  }
+
+private:
+  int pixel;
+  byte r,g,b;
+  bool running;
+  float startTime;
+  float duration;
+};
+
+class DiscoBeat : public Animation {
+public:
+  DiscoBeat() {
+    for( int i = 0; i < 32; ++i ) {
+      pixels[i].SetPixel(i);
+    }
+  }
+
+  void Draw( float beat, int* paletteChoices, Palette* palette ) {
+    if( lastBeat != (int)beat ) {
+      lastBeat = beat;
+        int i = 0;
+        for( int j = 0; j < 2; ++j ) {
+          uint32_t col = palette->Color(paletteChoices[rand()%4]);
+          while( ++i < 32 ) { 
+            int px = (rand()%4)*8 + (rand()%4);
+            if( pixels[px].Running() ) continue; 
+            pixels[px].Start( col , beat, 4.0f );
+            break;
+          }
+          while( ++i < 32 ) { 
+            int px = (rand()%4)*8 + (rand()%4) + 4;
+            if( pixels[px].Running() ) continue; 
+            pixels[px].Start( col, beat, 4.0f );
+            break;
+          }
+        }
+    }
+
+    trellis.fill(0);
+    for( int i = 0; i < 32; ++i ) {
+      pixels[i].Update(beat);
+    }
+  }
+
+private:
+  int lastBeat;
+
+  FadePixel pixels[32];
+};
 
 class AnimationPlayer : public UIInterface {
 public:
-  AnimationPlayer( BeatManager* beatManager, Palette* palette ) : beatManager(beatManager) {
+  AnimationPlayer( BeatManager* beatManager, Palette* palette ) : beatManager(beatManager), palette(palette), numAnimations(0) {
     mainMenu = new MainMenu(beatManager,palette);
+    for( int i = 0; i < 8; ++i ) {
+      animations[i] = 0;
+    }
+  }
+
+  void AddAnimation( Animation* anim ) {
+    if( numAnimations >= 8 ) return;
+    animations[numAnimations++] = anim;
   }
   
   void Setup() {  
@@ -435,15 +577,26 @@ public:
   }
 
   void Tick() {
-    trellis.fill(0);
-    trellis.setPixelColor( beatManager->ActiveBeat(), trellis.Color(255,255,255) );
-    
     if( trellis.isPressed(0) && trellis.isPressed(7) ) {
+      int c = 255;
       do {
         trellis.tick();
-      } while( trellis.isPressed(0) || trellis.isPressed(7) );
+        delay(10);
+      } while( (trellis.isPressed(0) || trellis.isPressed(7)) && (c-- > 0) );
       trellis.Adafruit_Keypad::clear();
       manager->push(mainMenu);
+      return;
+    }
+
+    int activeAnim = GetAnimationSequencer()->ActiveAnimation();
+    if( activeAnim >= numAnimations ) {
+      trellis.fill( trellis.Color( rand()%255, rand()%255, rand()%255 ) );
+    } else {
+      if( animations[activeAnim] != 0 ) {
+        animations[activeAnim]->Draw( beatManager->CurrentBeat(), GetPaletteManager()->GetColors(GetColorSequencer()->ActivePalette()), palette );
+      } else {
+        trellis.setPixelColor( activeAnim, trellis.Color( 255, 0, 0 ) );      
+      }
     }
   }
   
@@ -454,23 +607,35 @@ private:
   AnimationSequencer* GetAnimationSequencer() {
     return mainMenu->GetAnimationSequencer();
   }
+  PaletteManager* GetPaletteManager() {
+    return mainMenu->GetPaletteManager();
+  }
   
   MainMenu* mainMenu;
-  BeatManager* beatManager;  
+  Palette* palette;
+  BeatManager* beatManager;
+  Animation* animations[8];
+  int numAnimations;
 };
 
 UIManager uiManager;
 RainbowPalette palette;
 BeatManager beatManager;
 AnimationPlayer* player;
+MainMenu* mainMenu;
 
 void setup(){
+  delay(250);
+  
   trellis.begin();
   trellis.autoUpdateNeoPixels(false);
   trellis.setBrightness(brightness);
 
   palette.Size(trellis.num_keys());
+  //mainMenu = new MainMenu(&beatManager,&palette);
   player = new AnimationPlayer(&beatManager,&palette);
+  player->AddAnimation( new DiscoBeat() );
+  player->AddAnimation( new SimpleBeat() );
   
   uiManager.push(player);
 }
@@ -480,12 +645,14 @@ void loop() {
   trellis.tick();
   beatManager.Tick();
 
-  if( uiManager.numUI() > 1 ) {
+  if( uiManager.numUI() > 1 ) {    
     if( trellis.isPressed(0) && trellis.isPressed(7) ) {
       uiManager.pop();
+      int c = 255;
       do {
         trellis.tick();
-      } while( trellis.isPressed(0) || trellis.isPressed(7) );
+        delay(10);
+      } while( (trellis.isPressed(0) || trellis.isPressed(7)) && c-- > 0);
       trellis.Adafruit_Keypad::clear();
     }
   }
