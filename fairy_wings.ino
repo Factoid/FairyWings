@@ -5,6 +5,15 @@
 Adafruit_NeoTrellisM4 trellis = Adafruit_NeoTrellisM4();
 int brightness = 60;
 
+void DrawButton( int x, int y, uint32_t color, int w = 2, int h = 2 )
+{
+  for( int cx = x; cx < x + w; ++cx ) {
+    for( int cy = y; cy < y + h; ++cy ) {
+      trellis.setPixelColor((cy*8)+cx, color);
+    }
+  }       
+}
+
 class Palette {
 public:
   void Size( int s ) { paletteSize = s; }
@@ -187,39 +196,10 @@ private:
   int selectedCol;
   int selectedPal;
 };
-/*
-class BeatManager {
-public:
-  BeatManager() : bpm(140.0f) {
-    nextBeatAt = TimeBetweenBeats();
-  }
-  
-  void Tick() {
-    if( millis() >= nextBeatAt ) {
-      ++activeBeat;
-      nextBeatAt += TimeBetweenBeats();
-    }
-  }
 
-  int ActiveBeat() { return activeBeat%32; }
-  int CurrentBeat() { return activeBeat; }
-  
-  void BPM(float value) { bpm = value; }
-  int BPM() { return bpm; }
-  
-private:
-  unsigned long nextBeatAt;
-  int activeBeat;
-  float bpm;
-  
-  unsigned long TimeBetweenBeats() {
-    return (unsigned long)((1.0f/(bpm/60.0f))*1000.0f);
-  }  
-};
-*/
 class BeatManager {
 public:
-  BeatManager() : bpm(140.0f) {    
+  BeatManager() : bpm(110.0f), sampling(false), lastSample(0) {    
   }
 
   void Tick() {
@@ -227,6 +207,10 @@ public:
     float delta = (now - lastTime)/1000.0f;
     lastTime = now;
     activeBeat += delta * (bpm/60.0f);
+
+    if( sampling && now - samples[sampleIndex-1] > 2000.0f ) {
+      sampling = false;
+    }
   }
 
   int ActiveBeat() { return (int)activeBeat%32; }
@@ -234,11 +218,46 @@ public:
 
   void SetBPM(float value) { bpm = value; }
   float GetBPM() { return bpm; }
+
+  void SampleBPM() {
+    if( !sampling || sampleIndex == 8 ) {
+      sampling = true;
+      sampleIndex = 0;
+    }
+
+    if( sampleIndex < 8 ) {
+      samples[sampleIndex] = millis();
+      ++sampleIndex;
+      if( sampleIndex == 8 ) {
+        UpdateBPMFromSamples();
+      }
+    }
+  }
+
+  uint32_t SampleStateColor() {
+    if( !sampling ) return trellis.Color(5,5,5);
+    return sampleIndex < 8 ? trellis.Color(255,0,0) : trellis.Color(0,255,0);    
+  }
   
 private:
+  void UpdateBPMFromSamples() {
+    float delta = 0;
+    for( int i = 0; i < 7; ++i ) {
+      delta += samples[i+1] - samples[i];
+    }
+    delta /= 7;
+    SetBPM( 1000.0f/delta*60.0f );
+    activeBeat = (int)(activeBeat + 1);
+  }
+  
   unsigned long lastTime;
   float activeBeat;
   float bpm;
+
+  bool sampling;
+  unsigned long lastSample;
+  byte sampleIndex;
+  unsigned long samples[8];
 };
 
 class ColorSequencer : public UIInterface {
@@ -414,6 +433,8 @@ public:
         beatManager->SetBPM( beatManager->GetBPM() + 1 );
       } else if( row == 3 && col == 4 ) {
         beatManager->SetBPM( beatManager->GetBPM() - 1 );
+      } else if( row == 3 && col == 7 ) {
+        beatManager->SampleBPM();
       }
     }
   }
@@ -425,22 +446,14 @@ public:
         trellis.setPixelColor((j*8)+i, (c == ((j-2)*4)+i) ? trellis.Color(255,255,255) : 0 );
       }
     }
+    trellis.setPixelColor( 31, beatManager->SampleStateColor() );        
   }
 
 private:
   bool InRect( int c, int r, int x, int y, int w, int h ) {
     return c >= x && c < x + w && r >= y && r < y + h;
   }
-  
-  void DrawButton( int x, int y, uint32_t color, int w = 2, int h = 2 )
-  {
-    for( int cx = x; cx < x + w; ++cx ) {
-      for( int cy = y; cy < y + h; ++cy ) {
-        trellis.setPixelColor((cy*8)+cx, color);
-      }
-    }       
-  }
-  
+    
   void UpdateDisplay() {
     trellis.fill(0);
     DrawButton(0,0,trellis.Color(255,0,0));
@@ -460,9 +473,7 @@ private:
 
 class Animation {
 public:
-  virtual void Draw( float beat, int* paletteChoices, Palette* palette ) {
-    
-  }  
+  virtual void Draw( float beat, int* paletteChoices, Palette* palette ) = 0;  
 };
 
 class SimpleBeat : public Animation {
@@ -510,6 +521,43 @@ private:
   float duration;
 };
 
+class ChaseBeat : public Animation {
+public:
+  ChaseBeat() { 
+  }
+
+  void Draw( float beat, int* paletteChoices, Palette* palette ) {
+    
+  }
+};
+
+class SquareBeat : public Animation {
+public:
+  SquareBeat() {
+    for( int i = 0; i < 4; ++i ) colors[i] = 0;
+  }
+
+  void Draw( float beat, int* paletteChoices, Palette* palette ) {
+    if( lastBeat != (int)beat ) {
+      lastBeat = beat;
+      colors[1] = colors[0];
+      colors[3] = colors[2];
+      int i = beat;
+      colors[0] = palette->Color(paletteChoices[(int)i%4]);
+      colors[2] = palette->Color(paletteChoices[(int)(i+2)%4]);
+    }
+    
+    DrawButton(0,0,colors[1],4,4);
+    DrawButton(1,1,colors[0],2,2);
+    DrawButton(4,0,colors[3],4,4);
+    DrawButton(5,1,colors[2],2,2);
+  }
+
+private:
+  int lastBeat;
+  uint32_t colors[4];
+};
+
 class DiscoBeat : public Animation {
 public:
   DiscoBeat() {
@@ -527,7 +575,7 @@ public:
           while( ++i < 32 ) { 
             int px = (rand()%4)*8 + (rand()%4);
             if( pixels[px].Running() ) continue; 
-            pixels[px].Start( col , beat, 4.0f );
+            pixels[px].Start( col, beat, 4.0f );
             break;
           }
           while( ++i < 32 ) { 
@@ -634,6 +682,7 @@ void setup(){
   palette.Size(trellis.num_keys());
   //mainMenu = new MainMenu(&beatManager,&palette);
   player = new AnimationPlayer(&beatManager,&palette);
+  player->AddAnimation( new SquareBeat() );
   player->AddAnimation( new DiscoBeat() );
   player->AddAnimation( new SimpleBeat() );
   
