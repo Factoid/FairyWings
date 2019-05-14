@@ -8,7 +8,7 @@
 // The NeoTrellisM4 object is a keypad and neopixel strip subclass
 // that does things like auto-update the NeoPixels and stuff!
 Adafruit_NeoTrellisM4 trellis = Adafruit_NeoTrellisM4();
-int brightness = 60;
+int brightness = 20;
 
 UIManager uiManager;
 RainbowPalette palette;
@@ -16,8 +16,14 @@ BeatManager beatManager;
 AnimationPlayer* player;
 MainMenu* mainMenu;
 
+Adafruit_NeoPixel strip(8, PIN_WIRE_SCL, NEO_GRB + NEO_KHZ800);
+
 void setup(){
+  
   delay(250);
+
+  strip.begin();
+  strip.setBrightness(brightness);
   
   trellis.begin();
   trellis.autoUpdateNeoPixels(false);
@@ -26,9 +32,10 @@ void setup(){
   palette.Size(trellis.num_keys());
   //mainMenu = new MainMenu(&beatManager,&palette);
   player = new AnimationPlayer(&beatManager,&palette);
+  player->AddAnimation( new SquareBeat() );
+  player->AddAnimation( new LifeBeat() );
   player->AddAnimation( new ChaseBeat() );
   player->AddAnimation( new GridBeat() );
-  player->AddAnimation( new SquareBeat() );
   player->AddAnimation( new DiscoBeat() );
   player->AddAnimation( new SimpleBeat() );
   
@@ -58,6 +65,11 @@ void loop() {
   }
 
   uiManager.active_menu()->Tick();
+
+  strip.fill(0);
+  strip.setPixelColor( beatManager.ActiveBeat()%8, strip.Color(255,255,255));
+  strip.show();
+
   trellis.show();
   delay(10);
 }

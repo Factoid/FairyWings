@@ -4,6 +4,7 @@
 #include "mix_buffer.h"
 #include "trail_pixel.h"
 #include "fade_pixel.h"
+#include "life_grid.h"
 #include "trellis.h"
 
 class Animation {
@@ -32,32 +33,67 @@ class GridBeat : public Animation {
   }
 };
 
+class LifeBeat : public Animation {
+public:
+  LifeBeat() : lastBeat(0) {
+  }
+  
+  void Draw( float beat, int* paletteChoices, Palette* palette ) {
+    if( (int)beat != lastBeat ) {
+      lastBeat = (int)beat;
+      if( lastBeat % 8 == 0 ) {
+        lifeGrid.Mutate(2);
+      }
+      lifeGrid.Next(paletteChoices,palette);
+      lifeGrid.SpawnMinCells(paletteChoices,palette);
+    }
+
+    trellis.fill(0);
+    for( int x = 0; x < 8; ++x ){
+      for( int y = 0; y < 4; ++y ) {
+        float v = (beat - (int)beat)*4.0f;
+        if( v > 1 ) v = 1.0f;
+        if( lifeGrid.FullAlive(x,y) ) trellis.setPixelColor( (y*8) + x, lifeGrid.Color(x,y));
+        if( lifeGrid.Spawning(x,y) ) trellis.setPixelColor( (y*8) + x, lifeGrid.FadeColor( x, y, v ));
+        if( lifeGrid.Dying(x,y) ) trellis.setPixelColor( (y*8) + x, lifeGrid.FadeColor(x,y, 1.0f-v ));
+      }
+    }
+  }
+private:
+  int lastBeat;
+  LifeGrid lifeGrid;
+};
+
 class ChaseBeat : public Animation {
 public:
-  ChaseBeat() : lastBeat(0) { 
+  ChaseBeat() : lastBeat(-1), ci(0) { 
   }
 
   void Draw( float beat, int* paletteChoices, Palette* palette ) {
-    if( beat > lastBeat + 1.0f ) {
-      lastBeat = beat;
+    int b = (int)beat;
+    if( b != lastBeat ) {
+      lastBeat = b;
       for( int i = 0; i < 32; ++i ) {
         if( !pixels[i].IsRunning() ) {
-          pixels[i].Start( rand()%4, palette->Color(paletteChoices[rand()%4]));
+          pixels[i].Start(beat,rand()%4, palette->Color(paletteChoices[ci]));
+          ci += 1;
+          ci %= 4;
           break;    
         }
       }
     }
     mixBuffer.FillBuffer(0,0,0);
     for( int i = 0; i < 32; ++i ) {
-      pixels[i].Tick(mixBuffer);
+      pixels[i].Tick(beat,mixBuffer);
     }
     mixBuffer.ShowBuffer();
   }
 
 private:
+  int ci;
   MixBuffer mixBuffer;
   TrailPixel pixels[32];
-  float lastBeat;
+  int lastBeat;
 };
 
 class SquareBeat : public Animation {
@@ -69,11 +105,13 @@ public:
   void Draw( float beat, int* paletteChoices, Palette* palette ) {
     if( lastBeat != (int)beat ) {
       lastBeat = beat;
+      // 0 -> 1 -> 3 -> 2;
+      int n = (int)beat%4;
+      colors[2] = colors[3];
+      colors[3] = colors[1];
       colors[1] = colors[0];
-      colors[3] = colors[2];
-      int i = beat;
-      colors[0] = palette->Color(paletteChoices[(int)i%4]);
-      colors[2] = palette->Color(paletteChoices[(int)(i+2)%4]);
+      colors[0] = palette->Color(paletteChoices[n%4]);
+      ++n;
     }
     
     DrawButton(0,0,colors[1],4,4);

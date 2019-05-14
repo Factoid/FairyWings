@@ -5,7 +5,7 @@
 
 class BeatManager {
 public:
-  BeatManager() : bpm(110.0f), sampling(false), lastSample(0) {    
+  BeatManager() : bpm(60.0f), sampling(false), lastSample(0) {    
   }
 
   void Tick() {

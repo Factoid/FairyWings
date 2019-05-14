@@ -7,7 +7,13 @@ class ColorSequencer : public UIInterface {
 public:
   ColorSequencer( BeatManager* beatManager ) : beatManager(beatManager), lastBeat(0) {
     for( int i = 0; i < MAX_BEATS; ++i ) {
-      paletteChoice[i] = 0;
+      paletteChoice[i] = 0;//i%4;
+    }
+    for( int i = 0; i < MAX_BEATS; ++i ) {
+      int s = rand()%(MAX_BEATS-i);
+      int t = paletteChoice[i];
+      paletteChoice[i] = paletteChoice[s];
+      paletteChoice[s] = t;
     }
   }
   
