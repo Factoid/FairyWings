@@ -5,15 +5,35 @@
 
 class ColorSequencer : public UIInterface {
 public:
-  ColorSequencer( BeatManager* beatManager ) : beatManager(beatManager), lastBeat(0) {
+  ColorSequencer( BeatManager* beatManager ) : beatManager(beatManager), lastBeat(0), autoRandomize(false) {
     for( int i = 0; i < MAX_BEATS; ++i ) {
-      paletteChoice[i] = 0;//i%4;
+      paletteChoice[i] = 0;
+    }
+    Randomize();
+  }
+
+  void SetAutoRandomize( bool autoRandomize ) {
+    this->autoRandomize = autoRandomize;
+  }
+
+  bool GetAutoRandomize() {
+    return autoRandomize;
+  }
+    
+  void Randomize() {
+    if( !autoRandomize ) return;
+    
+    for( int i = 0; i < MAX_BEATS; ++i ) {
+      paletteChoice[i] = i%4;
     }
     for( int i = 0; i < MAX_BEATS; ++i ) {
       int s = rand()%(MAX_BEATS-i);
       int t = paletteChoice[i];
       paletteChoice[i] = paletteChoice[s];
       paletteChoice[s] = t;
+    }
+    if( manager->active(this) ) {
+      updateDisplay();
     }
   }
   
@@ -63,6 +83,7 @@ private:
   uint32_t color[4];
   BeatManager* beatManager;
   int lastBeat;
+  bool autoRandomize;
 
   void updateDisplay() {
     for( int i = 0; i < MAX_BEATS; ++i ) {

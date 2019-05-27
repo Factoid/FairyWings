@@ -41,7 +41,7 @@ public:
   }
 
   uint32_t SampleStateColor() {
-    if( !sampling ) return trellis.Color(5,5,5);
+    if( !sampling ) return trellis.Color(30,30,30);
     return sampleIndex < 8 ? trellis.Color(255,0,0) : trellis.Color(0,255,0);    
   }
   

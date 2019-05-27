@@ -26,6 +26,10 @@ public:
     if( activeInterface < 0 ) return NULL;
     return stack[activeInterface];
   }
+
+  bool active( UIInterface *interface ) {
+    return stack[activeInterface] == interface;
+  }
   
   void push( UIInterface* interface ) {
     if( activeInterface >= maxStack - 1 ) return;

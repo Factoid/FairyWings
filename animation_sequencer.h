@@ -5,7 +5,7 @@
 
 class AnimationSequencer : public UIInterface {
 public:
-  AnimationSequencer( BeatManager* beatManager ) : beatManager(beatManager) {
+  AnimationSequencer( BeatManager* beatManager ) : beatManager(beatManager), numAnimations(0), autoRandomize(false) {
     color[0] = trellis.Color(255,0,0);
     color[1] = trellis.Color(0,255,0);
     color[2] = trellis.Color(0,0,255);
@@ -18,6 +18,28 @@ public:
     for( int i = 0; i < MAX_ANIM; ++i ) {
       animChoice[i] = 0;
     }
+  }
+
+  void SetNumAnimations( int n ) {
+    numAnimations = n;    
+  }
+
+  void SetAutoRandomize( bool autoRandomize ) {
+    this->autoRandomize = autoRandomize;
+  }
+
+  bool GetAutoRandomize() {
+    return autoRandomize;
+  }
+  
+  void Randomize() {
+    if( !autoRandomize ) return;
+    
+    if( numAnimations < 2 ) return;
+    for( int i = 0; i < MAX_ANIM; ++i ) {
+      animChoice[i] = rand()%numAnimations;
+    }
+    if( manager->active(this) ) UpdateDisplay();
   }
   
   void Setup() {
@@ -34,6 +56,8 @@ public:
       int row = key / 8;
       int col = key % 8;
 
+      if( col > numAnimations ) return;
+      
       trellis.setPixelColor((row*8)+animChoice[row], color[animChoice[row]]);
       animChoice[row] = col;
     }    
@@ -62,12 +86,15 @@ private:
   uint32_t color[8];
   int animChoice[MAX_ANIM];
   int lastBeat;
-
+  int numAnimations;
+  bool autoRandomize;
+  
   BeatManager* beatManager;
   
   void UpdateDisplay() {
+    trellis.fill(0);
     for( int i = 0; i < MAX_ANIM; ++i ) {
-      for( int j = 0; j < 8; ++j ) {
+      for( int j = 0; j < numAnimations; ++j ) {
         trellis.setPixelColor((i*8)+j, color[j]);
       }
     }

@@ -20,6 +20,7 @@ public:
   void AddAnimation( Animation* anim ) {
     if( numAnimations >= 8 ) return;
     animations[numAnimations++] = anim;
+    GetAnimationSequencer()->SetNumAnimations(numAnimations);
   }
   
   void Setup() {  
@@ -57,13 +58,13 @@ public:
     }
   }
   
-private:
   ColorSequencer* GetColorSequencer() { 
     return mainMenu->GetColorSequencer();
   }
   AnimationSequencer* GetAnimationSequencer() {
     return mainMenu->GetAnimationSequencer();
   }
+private:
   PaletteManager* GetPaletteManager() {
     return mainMenu->GetPaletteManager();
   }

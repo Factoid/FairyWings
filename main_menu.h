@@ -39,16 +39,34 @@ public:
         manager->push(colorSequencer);
       } else if( InRect( col, row, 4, 0, 2, 2 ) ) {
         manager->push(animSequencer);     
-      } else if( row == 2 && col == 5 ) {
-        beatManager->SetBPM( beatManager->GetBPM() + 5 );
-      } else if( row == 3 && col == 5 ) {
-        beatManager->SetBPM( beatManager->GetBPM() - 5 );
       } else if( row == 2 && col == 4 ) {
-        beatManager->SetBPM( beatManager->GetBPM() + 1 );
+        int b = trellis.getBrightness();
+        b += 10;
+        if( b > 120 ) b = 120;
+        trellis.setBrightness(b);
       } else if( row == 3 && col == 4 ) {
-        beatManager->SetBPM( beatManager->GetBPM() - 1 );
+        int b = trellis.getBrightness();
+        b -= 10;
+        if( b < 10 ) b = 10;
+        trellis.setBrightness(b);
+      } else if( row == 2 && col == 5 ) {
+        int b = strip.getBrightness();
+        b += 10;
+        if( b > 120 ) b = 120;
+        strip.setBrightness(b);
+      } else if( row == 3 && col == 5 ) {
+        int b = strip.getBrightness();
+        b -= 10;
+        if( b < 10 ) b = 10;
+        strip.setBrightness(b);
       } else if( row == 3 && col == 7 ) {
         beatManager->SampleBPM();
+      } else if( row == 0 && col == 7 ) {
+        colorSequencer->SetAutoRandomize( !colorSequencer->GetAutoRandomize() );
+        UpdateDisplay();
+      } else if( row == 1 && col == 7 ) {
+        animSequencer->SetAutoRandomize( !animSequencer->GetAutoRandomize() );
+        UpdateDisplay();
       }
     }
   }
@@ -73,10 +91,13 @@ private:
     DrawButton(0,0,trellis.Color(255,0,0));
     DrawButton(2,0,trellis.Color(0,255,0));
     DrawButton(4,0,trellis.Color(0,0,255));
-    DrawButton(4,2,trellis.Color(0,255,0),1);
-    DrawButton(4,3,trellis.Color(255,0,0),1);
-    DrawButton(5,2,trellis.Color(0,255,64),1);
-    DrawButton(5,3,trellis.Color(255,64,0),1);
+    DrawButton(4,2,trellis.Color(0,255,0),1,1);
+    DrawButton(4,3,trellis.Color(255,0,0),1,1);
+    DrawButton(5,2,trellis.Color(0,255,64),1,1);
+    DrawButton(5,3,trellis.Color(255,64,0),1,1);
+
+    DrawButton(7,0,trellis.Color(0,colorSequencer->GetAutoRandomize() ? 255 : 64, 0),1,1);
+    DrawButton(7,1,trellis.Color(0, 0, animSequencer->GetAutoRandomize() ? 255 : 64),1,1);
   }
 
   BeatManager* beatManager;
