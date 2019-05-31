@@ -21,13 +21,8 @@ public:
     
     return Wheel( index*(max_colour/numColors()) );      
   }
-  
-private:
-  const int max_colour = 255;
 
-// Input a value 0 to 255 to get a color value.
-// The colours are a transition r - g - b - back to r.
-  uint32_t Wheel(byte WheelPos) {
+  static uint32_t Wheel(byte WheelPos) {
     WheelPos = 255 - WheelPos;
     if(WheelPos < 85) {
       return trellis.Color(255 - WheelPos * 3, 0, WheelPos * 3);
@@ -39,6 +34,12 @@ private:
     WheelPos -= 170;
     return trellis.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
   }
+  
+private:
+  const int max_colour = 255;
+
+// Input a value 0 to 255 to get a color value.
+// The colours are a transition r - g - b - back to r.
 };
 
 #endif

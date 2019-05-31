@@ -30,6 +30,8 @@ void setup(){
 
   palette.Size(trellis.num_keys());
   player = new AnimationPlayer(&beatManager,&palette);
+  player->AddAnimation( new PrideBeat() );
+  player->AddAnimation( new RainbowSwirl() );
   player->AddAnimation( new LifeBeat() );
   player->AddAnimation( new DiscoBeat() );
   player->AddAnimation( new ChaseBeat() );
@@ -50,9 +52,9 @@ void loop() {
   if( flip && beatManager.ActiveBeat() == 0 ) {
     player->GetColorSequencer()->Randomize();
     ++c;
-    if( c == 4 ) {
+    if( c > 3 ) {
       player->GetAnimationSequencer()->Randomize();
-      c == 0;
+      c = 0;
     }
     flip = false;
   } else if( !flip && beatManager.ActiveBeat() == 31 ) {
@@ -93,5 +95,4 @@ void loop() {
   }
   strip.show();
   trellis.show();
-//  delay(25);
 }

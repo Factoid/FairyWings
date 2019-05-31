@@ -40,20 +40,25 @@ public:
     }
   }
 
+  void Resync() {
+    activeBeat = (int)(activeBeat+1);
+    activeBeat += 7 - (int)activeBeat%8;
+  }
+  
   uint32_t SampleStateColor() {
     if( !sampling ) return trellis.Color(30,30,30);
     return sampleIndex < 8 ? trellis.Color(255,0,0) : trellis.Color(0,255,0);    
   }
-  
+
 private:
   void UpdateBPMFromSamples() {
-    float delta = 0;
-    for( int i = 0; i < 7; ++i ) {
-      delta += samples[i+1] - samples[i];
+    float avgBPM;
+    for( int i = 3; i < 7; ++i ) {
+      float delta = samples[i+1] - samples[i];
+      avgBPM += (int)(1000.0f/delta*60.0f);
     }
-    delta /= 7;
-    SetBPM( 1000.0f/delta*60.0f );
-    activeBeat = (int)(activeBeat + 1);
+    SetBPM( (avgBPM / 4.0f) );
+    Resync();
   }
   
   unsigned long lastTime;

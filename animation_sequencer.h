@@ -26,6 +26,7 @@ public:
 
   void SetAutoRandomize( bool autoRandomize ) {
     this->autoRandomize = autoRandomize;
+    Randomize();
   }
 
   bool GetAutoRandomize() {
@@ -56,7 +57,7 @@ public:
       int row = key / 8;
       int col = key % 8;
 
-      if( col > numAnimations ) return;
+      if( col >= numAnimations ) return;
       
       trellis.setPixelColor((row*8)+animChoice[row], color[animChoice[row]]);
       animChoice[row] = col;

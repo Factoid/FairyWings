@@ -8,41 +8,55 @@ class TrailPixel
 public:
   TrailPixel() : isRunning(false) {    
   }
-  
-  void Start( float beat, int d, uint32_t color ) {
+
+  void Start( float beat, int d, int p, int s, uint32_t color ) {
     if( isRunning ) return;
     isRunning = true;
     startBeat = beat;
     r = ((color & 0x00FF0000)>>16);
     g = ((color & 0x0000FF00)>>8);
     b = ((color & 0x000000FF));
-    spd = 1 << (rand()%3);
+    spd = s;
     dir = d;
     switch( dir ) {
       case 0:
         sx = 0;
         ex = 7;
-        sy = rand() % 4;
+        sy = p;
         ey = sy;
         break;
       case 1:
         sx = 7;
         ex = 0;
-        sy = rand() % 4;
+        sy = p;
         ey = sy;        
         //sy = ey = 3;
         break;
       case 2:
-        sx = rand() % 8;
+        sx = p;
         ex = sx;
         sy = 0;
         ey = 3;
         break;
       case 3:
-        sx = rand() % 8;
+        sx = p;
         ex = sx;
         sy = 4;
         ey = 0;
+        break;
+    }    
+  }
+
+  void Start( float beat, int d, uint32_t color ) {
+    int s = 1 << (rand()%3);
+    switch( d ) {
+      case 0:
+      case 1:
+        Start( beat, d, rand() % 4, s, color );
+        break;
+      case 2:
+      case 3:
+        Start( beat, d, rand() % 8, s, color );
         break;
     }
   }
@@ -50,7 +64,7 @@ public:
   bool IsRunning() { return isRunning; }
 
   void Tick( float beat, MixBuffer& mixBuffer ) {
-    if( beat > startBeat + 16 ) isRunning = false;
+    if( beat > startBeat + (8/spd) + 4 ) isRunning = false;
     if( !isRunning ) return;
     float n = beat-startBeat;
     int x, y;

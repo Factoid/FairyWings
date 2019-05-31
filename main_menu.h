@@ -52,7 +52,7 @@ public:
       } else if( row == 2 && col == 5 ) {
         int b = strip.getBrightness();
         b += 10;
-        if( b > 120 ) b = 120;
+        if( b > 250 ) b = 250;
         strip.setBrightness(b);
       } else if( row == 3 && col == 5 ) {
         int b = strip.getBrightness();
@@ -61,6 +61,8 @@ public:
         strip.setBrightness(b);
       } else if( row == 3 && col == 7 ) {
         beatManager->SampleBPM();
+      } else if( row == 2 && col == 7 ) {
+        beatManager->Resync();
       } else if( row == 0 && col == 7 ) {
         colorSequencer->SetAutoRandomize( !colorSequencer->GetAutoRandomize() );
         UpdateDisplay();

@@ -14,6 +14,7 @@ public:
 
   void SetAutoRandomize( bool autoRandomize ) {
     this->autoRandomize = autoRandomize;
+    Randomize();
   }
 
   bool GetAutoRandomize() {

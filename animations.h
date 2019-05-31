@@ -12,6 +12,118 @@ public:
   virtual void Draw( float beat, int* paletteChoices, Palette* palette ) = 0;  
 };
 
+class RainbowSwirl : public Animation {
+public:
+  void Draw( float beat, int* paletteChoices, Palette* palette ) {
+    int offset = (int)beat%32*255/32;
+    for( int i = 0; i < 32; ++i ) {
+      trellis.setPixelColor( i, RainbowPalette::Wheel( (int)(offset + (i*255/31))%255) );
+    }
+  }  
+};
+
+class PrideBeat : public Animation {
+public:
+  PrideBeat() {    
+    prideColor[0] = trellis.Color(255,0,0);
+    prideColor[1] = trellis.Color(255,64,0);
+    prideColor[2] = trellis.Color(255,255,0);
+    prideColor[3] = trellis.Color(0,255,0);
+    prideColor[4] = trellis.Color(0,0,255);
+    prideColor[5] = trellis.Color(128,0,64);
+
+    const int c = 110;
+    transFlag[0] = trellis.Color(c,c,255);
+    transFlag[1] = trellis.Color(255,c,c);
+    transFlag[2] = trellis.Color(255,255,255);
+
+    panFlag[0] = trellis.Color(255,0x14,64);
+    panFlag[1] = trellis.Color(255,0xDA,00);
+    panFlag[2] = trellis.Color(5,0xAE,0xFF);
+
+    curFlag = 0;
+  }
+  
+  void Draw( float beat, int* paletteChoices, Palette* palette ) {
+    if( (int)beat != lastBeat ) {
+      lastBeat = (int)beat;
+      int i = (lastBeat+9)%8;
+      if( i == 0 ) {
+        switch( curFlag ) {
+          case 0:
+            MakePride();
+            break;
+          case 1:
+            MakeTrans();
+            break;
+          case 2:
+            MakePan();
+        }
+        curFlag += 1;
+        curFlag %= 3;
+      }
+      trailPixel[i].Start( beat, 3, i, 8, colors[i] );
+    }
+
+    mixBuffer.FillBuffer(0,0,0);
+    for( int i = 0; i < 8; ++i ) {
+      trailPixel[i].Tick(beat,mixBuffer);
+    }
+/*    
+    int y = lastBeat%4;
+    bool left = (lastBeat%8) < 4;
+    mixBuffer.AddBuffer( (y*8)+(left ? 0 : 7), 255, 255, 255 );
+*/
+/*
+    uint32_t c = RainbowPalette::Wheel((int)(beat*64)%255);
+    int r = ((c & 0x00FF0000)>>16) / 4;
+    int g = ((c & 0x0000FF00)>>8) / 4;
+    int b = ((c & 0x000000FF)) / 4;
+    for( int i = 0; i < 4; ++ i ) {
+      mixBuffer.AddBuffer( (i*8), r, g, b );
+      mixBuffer.AddBuffer( (i*8)+7, r, g, b );
+    }
+*/
+    mixBuffer.ShowBuffer();
+  }
+  
+private:
+  uint32_t getColor( float beat ) {
+    return prideColor[(int)beat%6];
+  }
+
+  void MakePride() {
+    colors[0] = colors[7] = 0;
+    for( int i = 0; i < 6; ++i ) {
+      colors[i+1] = prideColor[i];
+    }
+  }
+
+  void MakeTrans() {
+    colors[0] = colors[7] = 0;
+    colors[1] = colors[6] = transFlag[0];
+    colors[2] = colors[5] = transFlag[1];
+    colors[3] = colors[4] = transFlag[2];
+  }
+
+  void MakePan() {
+    colors[0] = colors[7] = 0;
+    colors[1] = colors[2] = panFlag[0];
+    colors[3] = colors[4] = panFlag[1];
+    colors[5] = colors[6] = panFlag[2];
+  }
+  
+  MixBuffer mixBuffer;
+  TrailPixel trailPixel[8];
+  uint32_t colors[8];
+  uint32_t prideColor[6];
+  uint32_t transFlag[3];
+  uint32_t panFlag[3];
+    
+  int lastBeat;
+  int curFlag;
+};
+
 class SimpleBeat : public Animation {
 public:
   void Draw( float beat, int* paletteChoices, Palette* palette ) {
